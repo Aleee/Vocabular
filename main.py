@@ -1,42 +1,29 @@
+import py_pdf_parser.loaders
 from py_pdf_parser.loaders import load_file
 from py_pdf_parser.visualise import visualise
 import re
 from types import SimpleNamespace
-import lovely_logger as log
+from typing import Optional
 
-
-doc = load_file(r"C:\Users\Aleee\Desktop\lesen.pdf")
-#visualise(file, show_info=True)
-
-file = doc.get_page(1)
 
 ns = SimpleNamespace()
-
-ns.wordtype = SimpleNamespace()
-ns.wordtype.verb = 1
-
 ns.searchmethod = SimpleNamespace()
 ns.searchmethod.contains = 1
+
 
 class PdfParser:
 
     def __init__(self):
-        self.doc = None
+        self.doc: Optional[py_pdf_parser.loaders.PDFDocument] = None
         self.page = None
-        self.wordtype = None
 
-        log.init("log.log")
-
-    def open_pdf(self, path: str, word_type: int = ns.wordtype.verb):
+    def open_pdf(self, path: str):
         self.doc = load_file(path)
-        # visualise(file, show_info=True)
-        self.page = doc.get_page(1)
-        self.wordtype = word_type
+        #visualise(self.doc, show_info=True)
+        self.page = self.doc.get_page(1)
 
     def parse_save(self):
-        if self.wordtype == ns.wordtype.verb:
-            self.parse_save_verb()
-
+        raise NotImplementedError
 
     @staticmethod
     def remove_redundant(text: str):
@@ -58,72 +45,61 @@ class PdfParser:
         splitted.pop(0)
         return splitted
 
-    def parse_save_verb(self):
 
-        verb_elements = {
-            #search_method, search_params, single (None)/match position (int), db_table (str, optional), db_field (str, optional)
-            "verbs_ind_presens": (ns.searchmethod.contains, "Презенс", 0),
-            "verbs_ind_preterium": (ns.searchmethod.contains, "Претеритум", None),
-            "verbs_ind_perfect": (ns.searchmethod.contains, "Перфект", 0),
-            "verbs_ind_plusquamperfect": (ns.searchmethod.contains, "Плюсквамперфект", None),
-            "verbs_ind_futurum1": (ns.searchmethod.contains, "Футурум I", 0),
-            "verbs_ind_futurum2": (ns.searchmethod.contains, "Футурум I", 1),
-            "verbs_con_conj1": (ns.searchmethod.contains, "Конъюнктив I", 0),
-            "verbs_con_conj2": (ns.searchmethod.contains, "Конъюнктив I", 1),
-            "verbs_con_perfect": (ns.searchmethod.contains, "Перфект конъюнктив", None),
-            "verbs_con_plusquamperfect": (ns.searchmethod.contains, "Плюсквам. конъюнк.", None),
-            "verbs_con_futurum1": (ns.searchmethod.contains, "Футурум I конъюнктив", None),
-            "verbs_con_futurum2": (ns.searchmethod.contains, "Футурум II конъюнктив", None),
-            "verbs_inf_inf1": (ns.searchmethod.contains, "Инфинитив I", 0),
-            "verbs_inf_inf2": (ns.searchmethod.contains, "Инфинитив I", 1),
-            "verbs_par_part1": (ns.searchmethod.contains, "Партицип I", 0),
-            "verbs_par_part2": (ns.searchmethod.contains, "Партицип I", 1),
-            "verbs_imp_presens": (ns.searchmethod.contains, "Презенс", 1)
-        }
+class VerbPdfParser(PdfParser):
 
-        for elem_name, el_params in verb_elements.items():
-            elem_searchmethod = el_params[0]
-            elem_searchparams = el_params[1]
-            elem_matchposition = el_params[2]
-            try:
-                elem_dbtable = el_params[3]
-                elem_dbfield = el_params[4]
-            except IndexError:
-                elem_dbtable, elem_dbfield = self.extract_dbtablefield_names(elem_name)
+    verb_elements = {
+        # search_method, search_params, single (None)/match position (int), db_table (str), db_field (str)
+        "verbs_ind_presens": (ns.searchmethod.contains, "Презенс", 0, "verb_forms", "ind_presens"),
+        "verbs_ind_preterium": (ns.searchmethod.contains, "Претеритум", None, "verb_forms", "ind_preterium"),
+        "verbs_ind_perfect": (ns.searchmethod.contains, "Перфект", 0, "verb_forms", "ind_perfect"),
+        "verbs_ind_plusquamperfect": (ns.searchmethod.contains, "Плюсквамперфект", None, "verb_forms", "ind_plusquamperfect"),
+        "verbs_ind_futurum1": (ns.searchmethod.contains, "Футурум I", 0, "verb_forms", "ind_futurum1"),
+        "verbs_ind_futurum2": (ns.searchmethod.contains, "Футурум I", 1, "verb_forms", "ind_futurum2"),
+        "verbs_con_conj1": (ns.searchmethod.contains, "Конъюнктив I", 0, "verb_forms", "con_conj1"),
+        "verbs_con_conj2": (ns.searchmethod.contains, "Конъюнктив I", 1, "verb_forms", "con_conj2"),
+        "verbs_con_perfect": (ns.searchmethod.contains, "Перфект конъюнктив", None, "verb_forms", "con_perfect"),
+        "verbs_con_plusquamperfect": (ns.searchmethod.contains, "Плюсквам. конъюнк.", None, "verb_forms", "con_plusquamperfect"),
+        "verbs_con_futurum1": (ns.searchmethod.contains, "Футурум I конъюнктив", None, "verb_forms", "con_futurum1"),
+        "verbs_con_futurum2": (ns.searchmethod.contains, "Футурум II конъюнктив", None, "verb_forms", "con_futurum2"),
+        "verbs_inf_inf1": (ns.searchmethod.contains, "Инфинитив I", 0, "verb_forms", "inf_inf1"),
+        "verbs_inf_inf2": (ns.searchmethod.contains, "Инфинитив I", 1, "verb_forms", "inf_inf2"),
+        "verbs_par_part1": (ns.searchmethod.contains, "Партицип I", 0, "verb_forms", "par_part1"),
+        "verbs_par_part2": (ns.searchmethod.contains, "Партицип I", 1, "verb_forms", "par_part2"),
+        "verbs_imp_presens": (ns.searchmethod.contains, "Презенс", 1, "verb_forms", "imp_presens")
+    }
 
-            match elem_searchmethod:
+    def __init__(self):
+        super().__init__()
+
+    def parse_save(self):
+        for elem_name, elem_params in VerbPdfParser.verb_elements.items():
+            el_searchmethod = elem_params[0]
+            el_searchparams = elem_params[1]
+            el_matchposition = elem_params[2]
+            el_dbtable = elem_params[3]
+            el_dbfield = elem_params[4]
+
+            match el_searchmethod:
                 case ns.searchmethod.contains:
-                    pass
+                    if el_matchposition is not None:
+                        el = self.doc.elements.filter_by_text_contains(text=el_searchparams)[el_matchposition]
+                    else:
+                        try:
+                            el = self.doc.elements.filter_by_text_contains(text=el_searchparams).extract_single_element()
+                        except py_pdf_parser.exceptions.MultipleElementsFoundError as e:
+                            print(f"Multiple occurences found: {el_searchparams}")
+                            raise e
+
+                case _:
+                    return NotImplementedError
+
+            print(el.text())
 
 
 
-
-
-        # verbs_ind_presens = file.elements.filter_by_text_contains(text="Презенс")[0]
-        # verbs_ind_preterium = file.elements.filter_by_text_contains(text="Претеритум").extract_single_element()
-        # verbs_ind_perfect = file.elements.filter_by_text_contains(text="Перфект")[0]
-        # verbs_ind_plusquamperfect = file.elements.filter_by_text_contains(text="Плюсквамперфект").extract_single_element()
-        # verbs_ind_futurum1 = file.elements.filter_by_text_contains(text="Футурум I")[0]
-        # verbs_ind_futurum2 = file.elements.filter_by_text_contains(text="Футурум I")[1]
-        # verbs_con_conj1 = file.elements.filter_by_text_contains(text="Конъюнктив I")[0]
-        # verbs_con_conj2 = file.elements.filter_by_text_contains(text="Конъюнктив I")[1]
-        # verbs_con_perfect = file.elements.filter_by_text_contains(text="Перфект конъюнктив").extract_single_element()
-        # verbs_con_plusquamperfect = file.elements.filter_by_text_contains(
-        #     text="Плюсквам. конъюнк.").extract_single_element()
-        # verbs_con_futurum1 = file.elements.filter_by_text_contains(text="Футурум I конъюнктив").extract_single_element()
-        # verbs_con_futurum2 = file.elements.filter_by_text_contains(text="Футурум II конъюнктив").extract_single_element()
-        # verbs_inf_inf1 = file.elements.filter_by_text_contains(text="Инфинитив I")[0]
-        # verbs_inf_inf2 = file.elements.filter_by_text_contains(text="Инфинитив I")[1]
-        # verbs_par_part1 = file.elements.filter_by_text_contains(text="Партицип I")[0]
-        # verbs_par_part2 = file.elements.filter_by_text_contains(text="Партицип I")[1]
-        # verbs_imp_presens = file.elements.filter_by_text_contains(text="Презенс")[1]
-
-
-
-
-
-parser = PdfParser()
-parser.open_pdf(r"C:\Users\Aleee\Desktop\lesen.pdf", word_type=ns.wordtype.verb)
+parser = VerbPdfParser()
+parser.open_pdf(r"C:\Users\Aleee\Desktop\lesen.pdf")
 parser.parse_save()
 
 
